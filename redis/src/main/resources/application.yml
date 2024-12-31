@@ -6,4 +6,4 @@ spring:
     host: 127.0.0.1
     password: 123456
     database: 14
-    timeout: 2000
+    connect-timeout: 2000 # 最大连接超时时间
