@@ -7,3 +7,10 @@ spring:
     password: 123456
     database: 14
     connect-timeout: 2000 # 最大连接超时时间
+    lettuce:
+      pool:
+        max-active: 8 # 最大连接数
+        max-idle: 8 # 最大空闲连接数
+        max-wait: 3000 # 最大等待超时时间
+        min-idle: 0 # 最小空闲连接数
+
