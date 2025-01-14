@@ -1,6 +1,13 @@
+server:
+  port: 8848
 spring:
   application:
     name: redis
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://127.0.0.1:3306/hmdp?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai
+    username: root
+    password: 123456
   redis:
     port: 6379
     host: 127.0.0.1
@@ -13,4 +20,11 @@ spring:
         max-idle: 8 # 最大空闲连接数
         max-wait: 3000 # 最大等待超时时间
         min-idle: 0 # 最小空闲连接数
-
+        time-between-eviction-runs: 10s # 逐出连接的最小空闲时间
+  jackson:
+    default-property-inclusion: non_null # JSON处理时忽略非空字段 （默认只返回非空字段）
+mybatis-plus:
+  type-aliases-package: com.study.redis.entity # 别名扫描包
+logging:
+  level:
+    com.hmdp: debug
