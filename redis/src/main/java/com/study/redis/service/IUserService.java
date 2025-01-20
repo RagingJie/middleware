@@ -1,7 +1,11 @@
 package com.study.redis.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.study.redis.dto.LoginFormDTO;
+import com.study.redis.dto.Result;
 import com.study.redis.entity.User;
+
+import javax.servlet.http.HttpSession;
 
 /**
  * <p>
@@ -13,4 +17,7 @@ import com.study.redis.entity.User;
  */
 public interface IUserService extends IService<User> {
 
+    Result sendCode(String phone, HttpSession session);
+
+    Result login(LoginFormDTO loginForm, HttpSession session);
 }

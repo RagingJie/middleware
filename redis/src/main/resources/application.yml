@@ -1,5 +1,5 @@
 server:
-  port: 8848
+  port: 8081
 spring:
   application:
     name: redis
@@ -27,4 +27,4 @@ mybatis-plus:
   type-aliases-package: com.study.redis.entity # 别名扫描包
 logging:
   level:
-    com.hmdp: debug
+    com.study.redis: debug
