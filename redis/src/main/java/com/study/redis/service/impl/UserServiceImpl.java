@@ -1,6 +1,8 @@
 package com.study.redis.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.bean.copier.CopyOptions;
+import cn.hutool.core.lang.UUID;
 import cn.hutool.core.util.RandomUtil;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.study.redis.dto.LoginFormDTO;
@@ -18,7 +20,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
+import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -35,6 +40,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
 
     @Autowired
     private StringRedisTemplate stringRedisTemplate;
+    @Autowired
+    private HttpServletRequest request;
 
     @Override
     public Result sendCode(String phone, HttpSession session) {
@@ -79,9 +86,31 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         if (user == null) {
             user = createUserWithPhone(phone);
         }
+
         // 4、保存用户信息到session
-        session.setAttribute("user", BeanUtil.copyProperties(user, UserDTO.class));
+        // session.setAttribute("user", BeanUtil.copyProperties(user, UserDTO.class));
+        // 4、存储到redis中
+        // token
+        String token = UUID.randomUUID().toString(true);
+        // 隐藏用户敏感数据userDTO
+        UserDTO userDTO = BeanUtil.copyProperties(user, UserDTO.class);
+        Map<String, Object> userMap = BeanUtil.beanToMap(userDTO, new HashMap<>(), CopyOptions.create().setIgnoreNullValue(false).setFieldValueEditor((filedName, filedValue) -> filedValue.toString()));
+        // 存储到redis中
+        String tokenKey = RedisConstants.LOGIN_USER_KEY + token;
+        stringRedisTemplate.opsForHash().putAll(tokenKey, userMap);
+        stringRedisTemplate.expire(tokenKey, RedisConstants.LOGIN_USER_TTL, TimeUnit.MINUTES);
+
         // 5、返回结果
+        return Result.ok(token);
+    }
+
+    @Override
+    public Result logout() {
+        String token = request.getHeader("authorization");
+        if (token == null) {
+            return Result.fail("用户未登录");
+        }
+        stringRedisTemplate.delete(RedisConstants.LOGIN_USER_KEY + token);
         return Result.ok();
     }
 
