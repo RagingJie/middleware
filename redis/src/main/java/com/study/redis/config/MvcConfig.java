@@ -34,6 +34,7 @@ public class MvcConfig implements WebMvcConfigurer {
                 .addPathPatterns("/**")
                 .excludePathPatterns("/user/code")
                 .excludePathPatterns("/user/login")
+                .excludePathPatterns("/shop/**")
                 .order(0);
     }
 }
