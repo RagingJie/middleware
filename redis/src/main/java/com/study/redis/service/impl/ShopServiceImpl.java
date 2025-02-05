@@ -10,6 +10,7 @@ import com.study.redis.entity.Shop;
 import com.study.redis.mapper.ShopMapper;
 import com.study.redis.service.IShopService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.study.redis.utils.CacheClient;
 import com.study.redis.utils.RedisConstants;
 import com.study.redis.utils.RedisData;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,6 +18,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.annotation.Resource;
 import java.time.LocalDateTime;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -36,6 +38,9 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
     @Autowired
     private StringRedisTemplate stringRedisTemplate;
 
+    @Resource
+    private CacheClient cacheClient;
+
     private static final ExecutorService CACHE_REBUILD_EXECUTOR = Executors.newFixedThreadPool(10);
 
     @Override
@@ -43,11 +48,13 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
         // 缓存穿透
 //        Shop shop = queryShopWithPassThrough(id);
 
+        Shop shop = cacheClient.queryWithPassThrough(RedisConstants.CACHE_SHOP_KEY, id, Shop.class, this::getById, RedisConstants.CACHE_SHOP_TTL, TimeUnit.MINUTES);
+
         // 互斥锁解决缓存击穿
 //        Shop shop = queryShopWithMutex(id);
 
         // 逻辑过期解决缓存击穿
-        Shop shop = queryShopWithLogicalExpire(id);
+//        Shop shop = queryShopWithLogicalExpire(id);
 
         if (shop == null) {
             return Result.fail("店铺不存在");
