@@ -11,6 +11,8 @@ import com.study.redis.utils.RedisIdWorker;
 import com.study.redis.utils.UserHolder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -32,7 +34,7 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
     private RedisIdWorker redisIdWorker;
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
+    @Transactional(rollbackFor = Exception.class, isolation = Isolation.DEFAULT, propagation = Propagation.REQUIRED)
     public Result seckillVoucher(Long voucherId) {
         // 1、查询优惠券
         SeckillVoucher voucher = seckillVoucherService.getById(voucherId);
@@ -52,22 +54,30 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         if (voucher.getStock() < 1) {
             return Result.fail("库存不足！");
         }
-        // 5、扣减库存，使用乐观锁的思想，防止库存超卖
+
+        // 5、实现一人一单
+        Long userId = UserHolder.getUser().getId();
+        int count = query().eq("user_id", userId).eq("voucher_id", voucherId).count();
+        if (count > 0) {
+            return Result.fail("您已经购买过一次了！");
+        }
+
+        // 6、扣减库存，使用乐观锁的思想，防止库存超卖
         boolean success = seckillVoucherService.update()
                 .setSql("stock = stock - 1")
                 .eq("voucher_id", voucherId)
-                .gt("stock", 0)
+                .gt("stock", 0)  // 使用了乐观锁的思想，如果库存小于等于0，则更新失败
                 .update();
         if (!success) {
             return Result.fail("库存不足！");
         }
-        // 6、创建订单
+        // 7、创建订单
         VoucherOrder voucherOrder = new VoucherOrder();
-        // 6.1、生成订单号
+        // 7.1、生成订单号
         long orderId = redisIdWorker.nextId("order");
         voucherOrder.setId(orderId);
-        // 6.2、用户id
-        Long userId = UserHolder.getUser().getId();
+        // 7.2、用户id
+//        Long userId = UserHolder.getUser().getId();
         voucherOrder.setUserId(userId);
         // 6.3、券id
         voucherOrder.setVoucherId(voucherId);
