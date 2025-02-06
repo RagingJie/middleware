@@ -9,7 +9,6 @@ import com.study.redis.service.IVoucherOrderService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.study.redis.utils.RedisIdWorker;
 import com.study.redis.utils.UserHolder;
-import org.springframework.aop.framework.AopContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
@@ -35,6 +34,7 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
     private RedisIdWorker redisIdWorker;
 
     @Override
+    @Transactional(rollbackFor = Exception.class, isolation = Isolation.DEFAULT, propagation = Propagation.REQUIRED)
     public Result seckillVoucher(Long voucherId) {
         // 1、查询优惠券
         SeckillVoucher voucher = seckillVoucherService.getById(voucherId);
@@ -55,28 +55,13 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
             return Result.fail("库存不足！");
         }
 
-        Long userId = UserHolder.getUser().getId();
-        synchronized (userId.toString().intern()) {  // 使用悲观锁，解决线程安全问题
-            // 获取代理对象（事务）
-            IVoucherOrderService proxy = (IVoucherOrderService) AopContext.currentProxy();
-            return proxy.createVoucherOrder(voucherId);
-        }
-    }
-
-    /**
-     * 创建订单
-     *
-     * @param voucherId 订单id
-     * @return
-     */
-    @Transactional(rollbackFor = Exception.class, isolation = Isolation.DEFAULT, propagation = Propagation.REQUIRED)
-    public Result createVoucherOrder(Long voucherId) {
         // 5、实现一人一单
         Long userId = UserHolder.getUser().getId();
         int count = query().eq("user_id", userId).eq("voucher_id", voucherId).count();
         if (count > 0) {
             return Result.fail("您已经购买过一次了！");
         }
+
         // 6、扣减库存，使用乐观锁的思想，防止库存超卖
         boolean success = seckillVoucherService.update()
                 .setSql("stock = stock - 1")
