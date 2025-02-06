@@ -29,7 +29,7 @@ public class RefreshTokenInterceptor implements HandlerInterceptor {
         String token = request.getHeader("authorization");
 
         Map<Object, Object> userMap = stringRedisTemplate.opsForHash().entries(RedisConstants.LOGIN_USER_KEY + token);
-        if (userMap.isEmpty()){
+        if (userMap.isEmpty()) {
             response.setStatus(401);
             return false;
         }
@@ -60,9 +60,10 @@ public class RefreshTokenInterceptor implements HandlerInterceptor {
     @Override
     public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex) throws Exception {
         // 清除ThreadLocal
-        log.info("清理线程局部变量");
+        UserDTO userOne = UserHolder.getUser();
+        log.info("清理线程局部变量 -- 【前置】 -- 当前线程用户信息：{}", userOne);
         UserHolder.removeUser();
-        UserDTO user = UserHolder.getUser();
-        log.info("清理线程局部变量 -- 当前线程用户信息：{}", user);
+        UserDTO userTwo = UserHolder.getUser();
+        log.info("清理线程局部变量 -- 【后置】 -- 当前线程用户信息：{}", userTwo);
     }
 }
