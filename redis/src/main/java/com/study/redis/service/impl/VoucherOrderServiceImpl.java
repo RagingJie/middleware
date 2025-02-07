@@ -8,9 +8,11 @@ import com.study.redis.service.ISeckillVoucherService;
 import com.study.redis.service.IVoucherOrderService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.study.redis.utils.RedisIdWorker;
+import com.study.redis.utils.SimpleRedisLock;
 import com.study.redis.utils.UserHolder;
 import org.springframework.aop.framework.AopContext;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Propagation;
@@ -33,6 +35,8 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
     private ISeckillVoucherService seckillVoucherService;
     @Autowired
     private RedisIdWorker redisIdWorker;
+    @Autowired
+    private StringRedisTemplate stringRedisTemplate;
 
     @Override
     public Result seckillVoucher(Long voucherId) {
@@ -56,11 +60,22 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         }
 
         Long userId = UserHolder.getUser().getId();
-        synchronized (userId.toString().intern()) {  // 使用悲观锁，解决线程安全问题
+      /*  synchronized (userId.toString().intern()) {  // 使用悲观锁，解决线程安全问题
             // 获取代理对象（事务）
             IVoucherOrderService proxy = (IVoucherOrderService) AopContext.currentProxy();
             return proxy.createVoucherOrder(voucherId);
+        }*/
+
+        // 使用分布式锁，实现线程安全
+        SimpleRedisLock redisLock = new SimpleRedisLock("order:" + userId, stringRedisTemplate);
+        boolean lock = redisLock.tryLock(15L);
+        if (!lock){
+            return Result.fail("不允许重复下单！");
         }
+
+        // 获取代理对象（事务）
+        IVoucherOrderService proxy = (IVoucherOrderService) AopContext.currentProxy();
+        return proxy.createVoucherOrder(voucherId);
     }
 
     /**
