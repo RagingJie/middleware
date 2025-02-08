@@ -69,13 +69,19 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         // 使用分布式锁，实现线程安全
         SimpleRedisLock redisLock = new SimpleRedisLock("order:" + userId, stringRedisTemplate);
         boolean lock = redisLock.tryLock(15L);
-        if (!lock){
+        if (!lock) {
             return Result.fail("不允许重复下单！");
         }
 
-        // 获取代理对象（事务）
-        IVoucherOrderService proxy = (IVoucherOrderService) AopContext.currentProxy();
-        return proxy.createVoucherOrder(voucherId);
+        try {
+            // 获取代理对象（事务）
+            IVoucherOrderService proxy = (IVoucherOrderService) AopContext.currentProxy();
+            return proxy.createVoucherOrder(voucherId);
+        } finally {
+            // 释放锁
+            redisLock.unlock();
+        }
+
     }
 
     /**
@@ -93,10 +99,7 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
             return Result.fail("您已经购买过一次了！");
         }
         // 6、扣减库存，使用乐观锁的思想，防止库存超卖
-        boolean success = seckillVoucherService.update()
-                .setSql("stock = stock - 1")
-                .eq("voucher_id", voucherId)
-                .gt("stock", 0)  // 使用了乐观锁的思想，如果库存小于等于0，则更新失败
+        boolean success = seckillVoucherService.update().setSql("stock = stock - 1").eq("voucher_id", voucherId).gt("stock", 0)  // 使用了乐观锁的思想，如果库存小于等于0，则更新失败
                 .update();
         if (!success) {
             return Result.fail("库存不足！");
